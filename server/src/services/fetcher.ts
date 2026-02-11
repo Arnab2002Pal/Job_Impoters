@@ -5,7 +5,7 @@ export class JobFetcherService {
         try {
             const response = await axios.get(url, {
                 responseType: "text",
-                timeout: 15000
+                timeout: 20000
             });
 
             return response.data;

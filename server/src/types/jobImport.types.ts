@@ -1,13 +1,3 @@
-export interface NormalizedJob {
-    externalId: string;
-    title: string;
-    company: string;
-    location: string;
-    category?: string;
-    source: string;
-    url?: string;
-}
-
 export interface JobImportPayload {
     importLogId: string;
     source: string;
@@ -19,7 +9,12 @@ export interface NormalizedJob {
     title: string;
     company: string;
     location: string;
-    category?: string;
     source: string;
     url?: string;
+}
+
+export interface ImportLogQuery {
+    page?: number;
+    limit?: number;
+    source?: string;
 }

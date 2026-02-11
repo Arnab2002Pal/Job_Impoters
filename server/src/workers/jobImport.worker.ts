@@ -1,26 +1,101 @@
 import { Worker, Job } from "bullmq";
 import { JOB_IMPORT_QUEUE } from "../queues/jobImport.queue";
-import { redisConnection } from "../configs/redis";
+import { JobModel } from "../models/job.model";
+import { ImportLogModel } from "../models/importLog.model";
 import { JobImportPayload } from "../types/jobImport.types";
+import { redisConnection } from "../configs/redis";
+import { jobImportQueue } from "../queues/jobImport.queue";
 
 export const jobImportWorker = new Worker<JobImportPayload>(
     JOB_IMPORT_QUEUE,
     async (job: Job<JobImportPayload>) => {
-        const { jobs, source, importLogId } = job.data;
+        console.log("Worker Picked the task!!!")
+        const { jobs, importLogId } = job.data;
 
-        console.log(`🧵 Processing batch from ${source}`);
-        console.log(`📦 Jobs in batch: ${jobs.length}`);
-        console.log(`🆔 ImportLog: ${importLogId}`);
+        let newJobs = 0;
+        let updatedJobs = 0;
+        let failedJobs = 0;
+        const failures: { externalId: string; reason: string }[] = [];
 
-        // PHASE 5 will add real DB logic here
-        // For now, we just simulate success
+        try {
+            const bulkOps = jobs.map((jobItem) => ({
+                updateOne: {
+                    filter: { externalId: jobItem.externalId },
+                    update: { $set: jobItem },
+                    upsert: true
+                }
+            }));
+
+            const result = await JobModel.bulkWrite(bulkOps);
+
+            // detect new vs updated:
+            newJobs = result.upsertedCount;
+            updatedJobs = result.modifiedCount;
+
+        } catch (error: any) {
+            console.error("Bulk operation failed", error);
+
+            failedJobs = jobs.length;
+            jobs.forEach((i) =>
+                failures.push({
+                    externalId: i.externalId,
+                    reason: error.message || "Bulk write failed"
+                })
+            );
+        }
+
+        // Update Import Log incrementally
+        await ImportLogModel.findByIdAndUpdate(importLogId, {
+            $inc: {
+                newJobs,
+                updatedJobs,
+                failedJobs
+            },
+            ...(failures.length > 0 && {
+                $push: { failures: { $each: failures } }
+            })
+        });
+        await checkAndMarkImportComplete(importLogId);
 
         return {
-            processed: jobs.length
+            newJobs,
+            updatedJobs,
+            failedJobs
         };
     },
     {
         connection: redisConnection,
-        concurrency: 10   // max 10 jobs processed in parallel
+        concurrency: 10
     }
 );
+
+jobImportWorker.on("completed", async (job) => {
+    console.log(`Batch completed: ${job.id}`);
+});
+
+jobImportWorker.on("failed", (job, err) => {
+    console.error(`Batch failed: ${job?.id}`, err);
+});
+
+
+// Helper
+async function checkAndMarkImportComplete(importLogId: string) {
+    const waiting = await jobImportQueue.getWaiting();
+    const active = await jobImportQueue.getActive();
+
+    const remaining = [...waiting, ...active].filter(
+        (j) => {
+            if(j.data) {
+                j.data.importLogId === importLogId
+            }
+        }
+    );
+
+    if (remaining.length === 0) {
+        await ImportLogModel.findByIdAndUpdate(importLogId, {
+            finishedAt: new Date()
+        });
+
+        console.log(`Import ${importLogId} marked as finished`);
+    }
+}

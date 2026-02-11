@@ -10,7 +10,7 @@ export class JobParserService {
 
             return result;
         } catch (error) {
-            console.error("❌ XML Parsing failed", error);
+            console.error("XML Parsing failed", error);
             throw error;
         }
     }
