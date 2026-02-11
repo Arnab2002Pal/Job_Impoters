@@ -8,11 +8,11 @@ export class JobNormalizerService {
         if (!items) return [];
 
         const jobsArray = Array.isArray(items) ? items : [items];
-
+        
         return jobsArray.map((item: any) => {
             const title = item.title || "";
             const company = item["job_listing:company"] || "Unknown";
-            const location = item["job:location"] || "Remote";
+            const location = item["job_listing:location"] || "Remote";
             const link = item.link || "";
 
             const externalId = this.generateExternalId(title, company, link);
@@ -22,7 +22,6 @@ export class JobNormalizerService {
                 title,
                 company,
                 location,
-                category: item.category || "",
                 source,
                 url: link
             };
