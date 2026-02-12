@@ -3,8 +3,8 @@ import Link from "next/link";
 import { Clock, AlertCircle, ArrowLeft, FileJson, Globe } from "lucide-react";
 
 interface ImportFailure {
-    reason: string;      // Changed from 'error' to match your log
-    externalId: string;  // Changed from 'payload' to match your log
+    reason: string;
+    externalId: string;
 }
 
 interface ImportLog {
