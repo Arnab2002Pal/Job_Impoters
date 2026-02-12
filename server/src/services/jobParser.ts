@@ -5,7 +5,7 @@ export class JobParserService {
         try {
             const result = await parseStringPromise(xml, {
                 explicitArray: false,
-                trim: true
+                trim: true,
             });
 
             return result;

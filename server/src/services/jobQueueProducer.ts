@@ -14,15 +14,16 @@ export class JobQueueProducerService {
 
         console.log(`Total batches created: ${batches.length}`);
 
-        for (let i = 0; i < batches.length; i++) {
-            const payload: JobImportPayload = {
-                importLogId,
-                source,
-                jobs: batches[i]
-            };
-
-            await jobImportQueue.add("job-batch", payload);
-        }
+        await jobImportQueue.addBulk(
+            batches.map((batch) => ({
+                name: "job-batch",
+                data: {
+                    importLogId,
+                    source,
+                    jobs: batch
+                }
+            }))
+        );
 
         console.log("All batches pushed to Redis");
     }
